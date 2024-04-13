@@ -24,7 +24,6 @@ def clean_and_convert_population(data, column_name):
 population_data = pd.read_csv("datasets/Ontario_Population_and_Dwelling_Counts.csv", names=column_names, header=0)
 population_data = clean_and_convert_population(population_data, 'Population, 2021')
 
-
 # Load and preprocess hospital data
 hospital_data = pd.read_csv("datasets/Ontario_Hospital_Locations.csv")
 hospital_data = hospital_data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD', 'X', 'Y']]
@@ -42,14 +41,24 @@ grouped_hospitals = hospital_data.groupby('Facility_Name').first().reset_index()
 population_data = population_data[['Geographic name', 'Population, 2021']].dropna()
 population_data['Geographic name'] = population_data['Geographic name'].str.title()
 
+aggregated_population = population_data.groupby('Geographic name')['Population, 2021'].sum().reset_index()
+
+# update the population 2021 column data to be the aggregated population so that theres no duplicates for each area type
+population_data = population_data.drop_duplicates(subset=['Geographic name'])
+population_data = population_data.merge(aggregated_population, on='Geographic name', how='inner')
+population_data.drop(columns=['Population, 2021_x'], inplace=True)
+population_data.rename(columns={'Population, 2021_y': 'Population, 2021'}, inplace=True)
+
+
 # Merge data on city
 merged_data = pd.merge(grouped_hospitals, population_data[['Geographic name', 'Population, 2021']], left_on='COMMUNITY', right_on='Geographic name', how='inner')
 merged_data.dropna(subset=['Population, 2021'], inplace=True)
+merged_data.drop(columns=['Geographic name'], inplace=True)
 print(merged_data.columns)
 
 # Calculate Facilities Per Capita
 merged_data['Facilities_Per_Capita'] = merged_data.groupby('COMMUNITY').transform('count')['Facility_Name'] / merged_data['Population, 2021']
-print(merged_data.tail(100))
+print(merged_data.tail(10))
 merged_data.to_csv("datasets/merged_data.csv", index=False)
 
 
