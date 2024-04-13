@@ -15,9 +15,8 @@ To run this project, you will need Python installed on your machine, along with 
 - Matplotlib
 - Seaborn
 - Geopandas (for geographical data handling)
-- Folium (for interactive maps)
 
 ## Installation
 Clone this repository or download the files into your local machine. To install the required Python libraries, run:
 ```bash
-pip install pandas matplotlib seaborn geopandas folium
+pip install -r requirements.txt
