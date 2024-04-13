@@ -20,6 +20,7 @@ def clean_and_convert_population(data, column_name):
         data[column_name] = pd.to_numeric(data[column_name].str.replace(',', ''), errors='coerce')
     return data
 
+
 population_data = pd.read_csv("datasets/Ontario_Population_and_Dwelling_Counts.csv", names=column_names, header=0)
 population_data = clean_and_convert_population(population_data, 'Population, 2021')
 
@@ -36,8 +37,8 @@ print(hospital_data.columns)
 population_data = population_data[['Geographic name', 'Population, 2021']].dropna()
 population_data['Geographic name'] = population_data['Geographic name'].str.title()
 # Merge data on city
-merged_data = pd.merge(hospital_data, population_data, left_on='COMMUNITY', right_on='Geographic name', how='inner')
-
+merged_data = pd.merge(hospital_data, population_data, left_on='COMMUNITY', right_on='Geographic name', how='left')
+merged_data.dropna(subset=['Population, 2021'], inplace=True)
 print(merged_data['Population, 2021'].dtype)  # Should confirm the type is numeric
 print(merged_data.columns)
 
