@@ -30,21 +30,26 @@ hospital_data = pd.read_csv("datasets/Ontario_Hospital_Locations.csv")
 hospital_data = hospital_data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD', 'X', 'Y']]
 hospital_data.rename(columns={'X': 'Latitude', 'Y': 'Longitude'}, inplace=True)
 hospital_data['COMMUNITY'] = hospital_data['COMMUNITY'].str.title()
-# Check if 'Latitude' and 'Longitude' columns are available
-print(hospital_data.columns)
+hospital_data = hospital_data.drop_duplicates(subset=['ENGLISH_NA'])
+
+def extract_facility_name(hospital_name):
+    # Split the hospital name by '-' and take the first part
+    return hospital_name.split('-')[0].strip()
+hospital_data['Facility_Name'] = hospital_data['ENGLISH_NA'].apply(extract_facility_name)
+grouped_hospitals = hospital_data.groupby('Facility_Name').first().reset_index()
 
 
 population_data = population_data[['Geographic name', 'Population, 2021']].dropna()
 population_data['Geographic name'] = population_data['Geographic name'].str.title()
+
 # Merge data on city
-merged_data = pd.merge(hospital_data, population_data, left_on='COMMUNITY', right_on='Geographic name', how='left')
+merged_data = pd.merge(grouped_hospitals, population_data[['Geographic name', 'Population, 2021']], left_on='COMMUNITY', right_on='Geographic name', how='inner')
 merged_data.dropna(subset=['Population, 2021'], inplace=True)
-print(merged_data['Population, 2021'].dtype)  # Should confirm the type is numeric
 print(merged_data.columns)
 
 # Calculate Facilities Per Capita
-merged_data['Facilities_Per_Capita'] = merged_data.groupby('COMMUNITY')['ENGLISH_NA'].transform('count') / merged_data['Population, 2021']
-print(merged_data.head(100))
+merged_data['Facilities_Per_Capita'] = merged_data.groupby('COMMUNITY').transform('count')['Facility_Name'] / merged_data['Population, 2021']
+print(merged_data.tail(100))
 merged_data.to_csv("datasets/merged_data.csv", index=False)
 
 
@@ -57,6 +62,26 @@ plt.xlabel('Region')
 plt.ylabel('Facilities Per Capita')
 plt.tight_layout()
 plt.show()
+
+
+# # Convert geographical data for plotting
+# gdf = gpd.GeoDataFrame(
+#     merged_data, geometry=gpd.points_from_xy(merged_data.Longitude, merged_data.Latitude)
+# )
+
+# # Load a more detailed base map
+# ontario_map = gpd.read_file("datasets/ontario_base_map.shp")  # Specify the path to your Ontario shapefile
+
+# # Plot using GeoPandas
+# fig, ax = plt.subplots(figsize=(10, 10))
+# ontario_map.plot(ax=ax, color='white', edgecolor='black')  # Plot Ontario base map
+# gdf.plot(ax=ax, marker='o', color='red', markersize=5)  # Plot hospital locations
+# plt.title('Healthcare Facilities in Ontario')
+# plt.xlim([-95, -74])  # Adjust these values based on the longitude of Ontario
+# plt.ylim([41, 57])   # Adjust these values based on the latitude of Ontario
+# plt.show()
+
+
 
 
 
