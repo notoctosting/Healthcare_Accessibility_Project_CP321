@@ -18,7 +18,7 @@ The data is cleaned and merged to create a comprehensive dataset that includes t
 Several visualizations are generated as part of the analysis:
 
 ### Bar Chart of Facilities Per Capita
-![Bar Chart of Facilities Per Capita](datasets/bar_chart_facilities_per_capita.png)
+![Bar Chart of Facilities Per Capita](datasets/bar_chart_facilities_per_capita_sorted.pngg)
 *This bar chart displays the number of healthcare facilities relative to the population size for each community, sorted to show communities with the highest and lowest facilities per capita.*
 
 ### Scatter Plot of Population vs. Facilities Per Capita
