@@ -163,13 +163,13 @@ def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_pa
                              bbox=dict(facecolor='green', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
     texts.append(ax.text(lowest_city.geometry.x, lowest_city.geometry.y, lowest_FPC, fontsize=8, ha='center', va='center',
                                 bbox=dict(facecolor='red', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
-    # make the adjustment much more aggressive
-    adjust_text(texts, expand=(5, 3.25), # expand text bounding boxes by 1.2 fold in x direction and 2 fold in y direction
-                arrowprops=dict(arrowstyle='->', color='red') # ensure the labeling is clear by adding arrows
-                )
+
     hospital_gdf.plot(ax=ax, column='Facilities_Per_Capita', cmap='viridis', alpha=0.6,
                           markersize=hospital_gdf['marker_size'], legend=True,
                           legend_kwds={'label': "Facilities Per Capita", 'orientation': "horizontal"})
+    adjust_text(texts, expand=(5, 3.25), # expand text bounding boxes by 1.2 fold in x direction and 2 fold in y direction
+                arrowprops=dict(arrowstyle='->', color='red') # ensure the labeling is clear by adding arrows
+                )
     ax.set_title('Healthcare Facilities Per Capita in Ontario', fontsize=20, fontweight='bold')
     ax.set_xlabel('Longitude')
     ax.set_ylabel('Latitude')
