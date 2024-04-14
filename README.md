@@ -34,6 +34,7 @@ Several visualizations are generated as part of the analysis:
 *A geographical map showing the distribution of facilities per capita across Ontario, with annotations for significant regions.*
 
 
+
 ## Functions Description
 
 - `load_population_data()`: Loads and cleans population data from a CSV file.
