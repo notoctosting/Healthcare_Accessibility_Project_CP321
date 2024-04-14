@@ -125,7 +125,17 @@ def normalize_marker_sizes(series, min_size=85, max_size=750):
     series_normalized = (series - series.min()) / (series.max() - series.min())
     return series_normalized * (max_size - min_size) + min_size
 
-def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path ,geonames_path):
+# Function to identify highest and lowest facilities per capita
+def identify_extreme_cities(merged_data):
+    # Sort by facilities per capita
+    sorted_data = merged_data.sort_values('Facilities_Per_Capita', ascending=False)
+    # Get the highest and lowest
+    highest = sorted_data.head(1)
+    lowest = sorted_data.tail(1)
+    # Return their community names
+    return highest['COMMUNITY'].values[0], lowest['COMMUNITY'].values[0]
+
+def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path ,geonames_path, highest_FPC, lowest_FPC):
     ontario_map = load_and_simplify_shapefile(base_map_path, tolerance=0.0001)
     upper_tier_boundaries = load_and_simplify_shapefile(upper_tier_path, tolerance=0.001)
     lower_tier_boundaries = load_and_simplify_shapefile(lower_tier_path, tolerance=100)
@@ -158,6 +168,15 @@ def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_pa
             texts.append(ax.text(centroid.x, centroid.y, row['LABEL'], fontsize=8, ha='center', va='center',
                              bbox=dict(facecolor='yellow', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
 
+    # add the highest and lowest cities to the plot
+    highest_city = hospital_gdf[hospital_gdf['COMMUNITY'] == highest_FPC]
+    lowest_city = hospital_gdf[hospital_gdf['COMMUNITY'] == lowest_FPC]
+    ax.plot(highest_city.geometry.x, highest_city.geometry.y, 'x', color='green', markersize=10)
+    ax.plot(lowest_city.geometry.x, lowest_city.geometry.y, 'x', color='red', markersize=10)
+    texts.append(ax.text(highest_city.geometry.x, highest_city.geometry.y, highest_FPC, fontsize=8, ha='center', va='center',
+                             bbox=dict(facecolor='green', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
+    texts.append(ax.text(lowest_city.geometry.x, lowest_city.geometry.y, lowest_FPC, fontsize=8, ha='center', va='center',
+                                bbox=dict(facecolor='red', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
     # make the adjustment much more aggressive
     adjust_text(texts, expand=(5, 3.25), # expand text bounding boxes by 1.2 fold in x direction and 2 fold in y direction
                 arrowprops=dict(arrowstyle='->', color='red') # ensure the labeling is clear by adding arrows
@@ -197,10 +216,13 @@ merged_data['Facilities_Per_Capita'] = merged_data.groupby('COMMUNITY').transfor
 print(merged_data.tail(10))
 merged_data.to_csv("datasets/merged_data.csv", index=False)
 
+# identify the highest and lowest facilities per capita
+highest_FPC, lowest_FPC = identify_extreme_cities(merged_data)
+
 # plot_bar_chart_of_facilities_per_capita(merged_data)
 
 # Initialize the geolocator
-geolocator = Nominatim(user_agent="geoapiiExercises")
+geolocator = Nominatim(user_agent="geoapiExercises")
 # To prevent spamming the service with too many requests, use RateLimiter
 geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
@@ -215,6 +237,6 @@ upper_tier_path = "datasets/ontario_shapefiles/upper_tier_boundaries/Municipal_B
 lower_tier_path = "datasets/ontario_shapefiles/lower_tier_boundaries/Municipal_Boundary_-_Lower_and_Single_Tier.shp"
 geonames_path = "datasets/ontario_shapefiles/names/Geographic_Names_Ontario.shp"
 
-plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, geonames_path)
+plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, geonames_path, highest_FPC, lowest_FPC)
 
 
