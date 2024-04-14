@@ -106,7 +106,7 @@ def load_and_simplify_shapefile(filepath, tolerance=0.1):
     gdf['geometry'] = gdf['geometry'].simplify(tolerance)
     return gdf
 
-def normalize_marker_sizes(series, min_size=85, max_size=750):
+def normalize_marker_sizes(series, min_size=50, max_size=750):
     # Normalize series to have a minimum of min_size and a maximum of max_size
     series_normalized = (series - series.min()) / (series.max() - series.min())
     return series_normalized * (max_size - min_size) + min_size
@@ -121,25 +121,28 @@ def identify_extreme_cities(merged_data):
     # Return their community names
     return highest['COMMUNITY'].values[0], lowest['COMMUNITY'].values[0]
 
-def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path ,geonames_path, highest_FPC, lowest_FPC):
-    ontario_map = load_and_simplify_shapefile(base_map_path, tolerance=0.0001)
-    upper_tier_boundaries = load_and_simplify_shapefile(upper_tier_path, tolerance=0.001)
-    # Load geonames shapefile and filter for cities
+def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path ,geonames_path,townships_path, highest_FPC, lowest_FPC):
+    ontario_map = load_and_simplify_shapefile(base_map_path, tolerance=0.000)
+    upper_tier_boundaries = load_and_simplify_shapefile(upper_tier_path, tolerance=0.1)
     geonames_gdf = load_geonames_data(geonames_path)
+    townships_gdf = load_and_simplify_shapefile(townships_path, tolerance=0.001)
 
     # Ensure the coordinate reference systems match
     if ontario_map.crs != hospital_gdf.crs:
         hospital_gdf = hospital_gdf.to_crs(ontario_map.crs)
     if ontario_map.crs != upper_tier_boundaries.crs:
         upper_tier_boundaries = upper_tier_boundaries.to_crs(ontario_map.crs)
+    if ontario_map.crs != geonames_gdf.crs:
+        geonames_gdf = geonames_gdf.to_crs(ontario_map.crs)
 
     # Normalize the total population for the marker size
     hospital_gdf['marker_size'] = normalize_marker_sizes(hospital_gdf['Population, 2021'])
 
     # Start plotting
     fig, ax = plt.subplots(figsize=(15, 15))
-    ontario_map.plot(ax=ax, color='white', edgecolor='lightgrey')
-    upper_tier_boundaries.plot(ax=ax, edgecolor='black', linewidth=0.1, alpha=1, linestyle='--', facecolor="none")
+    ontario_map.plot(ax=ax, color='lightgrey', edgecolor='lightgrey')
+    townships_gdf.plot(ax=ax, edgecolor='grey', linewidth=0.05, alpha=0.5, facecolor="none")
+    upper_tier_boundaries.plot(ax=ax, edgecolor='grey', linewidth=0.5, alpha=0.55, linestyle='--', facecolor="none")
     major_cities = ['Toronto', 'Ottawa', 'Hamilton', 'London', 'Kitchener', 'Windsor', 'Barrie', 'Kingston', 'Guelph', 'St. Catharines']
     
     texts = []
@@ -214,8 +217,9 @@ hospital_gdf = load_precollected_data("datasets/merged_data_with_location.csv")
 base_map_path = "datasets/ontario_shapefiles/base_map/OBM_INDEX.shp"
 upper_tier_path = "datasets/ontario_shapefiles/upper_tier_boundaries/Municipal_Boundary_-_Upper_Tier_and_District.shp"
 geonames_path = "datasets/ontario_shapefiles/names/Geographic_Names_Ontario.shp"
+townships_path = "datasets/ontario_shapefiles/township/Geographic_Township_Improved.shp"
 
-plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, geonames_path, highest_FPC, lowest_FPC)
+plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, geonames_path,townships_path, highest_FPC, lowest_FPC)
 
 
 # Additional visualization function definitions
@@ -277,7 +281,7 @@ def plot_scatter_trend(merged_data):
     plt.savefig('datasets/scatter_trend_facilities_per_capita.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-plot_bar_chart_of_facilities_per_capita(merged_data)
-plot_population_vs_facilities(merged_data)
-plot_scatter_trend(merged_data)
-plot_facilities_boxplot(merged_data)
+# plot_bar_chart_of_facilities_per_capita(merged_data)
+# plot_population_vs_facilities(merged_data)
+# plot_scatter_trend(merged_data)
+# plot_facilities_boxplot(merged_data)
