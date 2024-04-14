@@ -3,94 +3,218 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
 import seaborn as sns
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+from tqdm import tqdm
+import matplotlib.colors as colors
+from adjustText import adjust_text
 
-# Load and clean population data
-column_names = [
-    "Geographic name", "Geographic area type abbreviation", "Population, 2021", "Population, 2016",
-    "Population percentage change, 2016 to 2021", "Total private dwellings, 2021",
-    "Total private dwellings, 2016", "Total private dwellings percentage change, 2016 to 2021",
-    "Private dwellings occupied by usual residents, 2021", "Private dwellings occupied by usual residents, 2016",
-    "Private dwellings occupied by usual residents percentage change, 2016 to 2021",
-    "Land area in square kilometres, 2021", "Population density per square kilometre, 2021",
-    "National population rank, 2021", "Province/territory population rank, 2021"
-]
-def clean_and_convert_population(data, column_name):
-    if data[column_name].dtype == 'object':
-        # Remove commas and convert to numeric, setting errors to coerce turns non-convertible values into NaN
-        data[column_name] = pd.to_numeric(data[column_name].str.replace(',', ''), errors='coerce')
+tqdm.pandas()
+
+def load_population_data(filepath="datasets/Ontario_Population_and_Dwelling_Counts.csv"):
+    column_names = [
+        "Geographic name", "Geographic area type abbreviation", "Population, 2021", "Population, 2016",
+        "Population percentage change, 2016 to 2021", "Total private dwellings, 2021",
+        "Total private dwellings, 2016", "Total private dwellings percentage change, 2016 to 2021",
+        "Private dwellings occupied by usual residents, 2021", "Private dwellings occupied by usual residents, 2016",
+        "Private dwellings occupied by usual residents percentage change, 2016 to 2021",
+        "Land area in square kilometres, 2021", "Population density per square kilometre, 2021",
+        "National population rank, 2021", "Province/territory population rank, 2021"
+    ]
+    population_data = pd.read_csv(filepath, names=column_names, header=0)
+    population_data = clean_population_data(population_data)
+    return population_data
+
+def clean_population_data(data):
+    numeric_columns = [
+        "Population, 2021", "Population, 2016",
+        "Total private dwellings, 2021", "Total private dwellings, 2016",
+        "Private dwellings occupied by usual residents, 2021", "Private dwellings occupied by usual residents, 2016"
+    ]
+    for column in numeric_columns:
+        if data[column].dtype == 'object':
+            # Remove commas and convert to numeric
+            data[column] = pd.to_numeric(data[column].str.replace(',', ''), errors='coerce')
+    data = data[['Geographic name', 'Population, 2021']].dropna()
+    data['Geographic name'] = data['Geographic name'].str.title()
     return data
 
+def load_hospital_data(filepath="datasets/Ontario_Hospital_Locations.csv"):
+    hospital_data = pd.read_csv(filepath)
+    hospital_data = clean_hospital_data(hospital_data)
+    return hospital_data
 
-population_data = pd.read_csv("datasets/Ontario_Population_and_Dwelling_Counts.csv", names=column_names, header=0)
-population_data = clean_and_convert_population(population_data, 'Population, 2021')
+def clean_hospital_data(data):
+    data = data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD']]
+    data['COMMUNITY'] = data['COMMUNITY'].str.title()
+    data['Facility_Name'] = data['ENGLISH_NA'].apply(lambda x: x.split('-')[0].strip())
+    data = data.drop_duplicates(subset=['Facility_Name'])
+    return data
 
-# Load and preprocess hospital data
-hospital_data = pd.read_csv("datasets/Ontario_Hospital_Locations.csv")
-hospital_data = hospital_data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD', 'X', 'Y']]
-hospital_data.rename(columns={'X': 'Latitude', 'Y': 'Longitude'}, inplace=True)
-hospital_data['COMMUNITY'] = hospital_data['COMMUNITY'].str.title()
-hospital_data = hospital_data.drop_duplicates(subset=['ENGLISH_NA'])
+def merge_datasets(hospital_data, population_data):
+    # Preprocessing steps if any additional are needed
+    population_data['Geographic name'] = population_data['Geographic name'].str.title()
+    hospital_data['COMMUNITY'] = hospital_data['COMMUNITY'].str.title()
 
-def extract_facility_name(hospital_name):
-    # Split the hospital name by '-' and take the first part
-    return hospital_name.split('-')[0].strip()
-hospital_data['Facility_Name'] = hospital_data['ENGLISH_NA'].apply(extract_facility_name)
+    # Merge the data on the community name
+    merged_data = pd.merge(hospital_data, population_data, left_on='COMMUNITY', right_on='Geographic name', how='inner')
+    merged_data.dropna(subset=['Population, 2021'], inplace=True)
+    merged_data.drop(columns=['Geographic name'], inplace=True)
+    return merged_data
+
+def plot_bar_chart_of_facilities_per_capita(data):
+    plt.figure(figsize=(20, 6))
+    sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=merged_data, palette='viridis')
+    plt.xticks(rotation=90)
+    plt.title('Healthcare Facilities Per Capita by Region')
+    plt.xlabel('Region')
+    plt.ylabel('Facilities Per Capita')
+    plt.tight_layout()
+    plt.show()
+
+# function to get the coordinates from the address using geopy api - takes around 2.5 hours to run so use pre-collected data if possible
+def fetch_geopy_coordinates(merged_data):
+    # Define a function to parse the location into point geometry
+    def geocode_address(address):
+        try:
+            location = geocode(address)
+            if location:
+                return Point(location.longitude, location.latitude)
+        except Exception as e:
+            print(f"Error geocoding address {address}: {e}")
+        return None
+    # Apply geocoding to the address column
+    merged_data['address'] = merged_data['ADDRESS_LI'] + ', ' + merged_data['COMMUNITY'] + ', Ontario, Canada'
+    merged_data['point'] = merged_data['address'].head(10).progress_apply(geocode_address)
+    # Drop rows where geocoding failed
+    merged_data = merged_data.dropna(subset=['point'])
+    # Convert the DataFrame to a GeoDataFrame
+    hospital_gdf = gpd.GeoDataFrame(merged_data, geometry='point')
+    # Save the data to a CSV file including longitude and latitude
+    hospital_gdf['latitude'] = hospital_gdf.geometry.y
+    hospital_gdf['longitude'] = hospital_gdf.geometry.x
+    hospital_gdf.to_csv("datasets/merged_data_with_locations_v2.csv", index=False)
+    return hospital_gdf
+
+def load_precollected_data(filepath = "datasets/merged_data_with_location.csv"):
+    data = pd.read_csv(filepath)
+    # Ensure columns containing longitude and latitude are correctly typed
+    data['latitude'] = pd.to_numeric(data['latitude'], errors='coerce')
+    data['longitude'] = pd.to_numeric(data['longitude'], errors='coerce')
+    # Drop any rows that couldn't be converted or were missing
+    data.dropna(subset=['latitude', 'longitude'], inplace=True)
+    # Create a GeoDataFrame
+    gdf = gpd.GeoDataFrame(data, geometry=gpd.points_from_xy(data.longitude, data.latitude))
+    # Set the CRS for the GeoDataFrame to WGS84 (lat/lon)
+    gdf.set_crs(epsg=4326, inplace=True)
+
+    return gdf
+
+def load_geonames_data(filepath):
+    # Use GeoPandas to read shapefile data
+    geonames_data = gpd.read_file(filepath)
+    return geonames_data
+
+def load_and_simplify_shapefile(filepath, tolerance=0.1):
+    gdf = gpd.read_file(filepath)
+    gdf['geometry'] = gdf['geometry'].simplify(tolerance)
+    return gdf
+
+def normalize_marker_sizes(series, min_size=85, max_size=750):
+    # Normalize series to have a minimum of min_size and a maximum of max_size
+    series_normalized = (series - series.min()) / (series.max() - series.min())
+    return series_normalized * (max_size - min_size) + min_size
+
+def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path ,geonames_path):
+    ontario_map = load_and_simplify_shapefile(base_map_path, tolerance=0.0001)
+    upper_tier_boundaries = load_and_simplify_shapefile(upper_tier_path, tolerance=0.001)
+    lower_tier_boundaries = load_and_simplify_shapefile(lower_tier_path, tolerance=100)
+    # Load geonames shapefile and filter for cities
+    geonames_gdf = load_geonames_data(geonames_path)
+
+
+    # Ensure the coordinate reference systems match
+    if ontario_map.crs != hospital_gdf.crs:
+        hospital_gdf = hospital_gdf.to_crs(ontario_map.crs)
+    if ontario_map.crs != upper_tier_boundaries.crs:
+        upper_tier_boundaries = upper_tier_boundaries.to_crs(ontario_map.crs)
+    if ontario_map.crs != lower_tier_boundaries.crs:
+        lower_tier_boundaries = lower_tier_boundaries.to_crs(ontario_map.crs)
+
+    # Normalize the total population for the marker size
+    hospital_gdf['marker_size'] = normalize_marker_sizes(hospital_gdf['Population, 2021'])
+
+    # Start plotting
+    fig, ax = plt.subplots(figsize=(15, 15))
+    ontario_map.plot(ax=ax, color='white', edgecolor='lightgrey')
+    upper_tier_boundaries.plot(ax=ax, edgecolor='black', linewidth=0.1, alpha=1, linestyle='--', facecolor="none")
+    lower_tier_boundaries.plot(ax=ax, edgecolor='grey', linewidth=0.5, alpha=0.5, facecolor="none")
+    major_cities = ['Toronto', 'Ottawa', 'Hamilton', 'London', 'Kitchener', 'Windsor', 'Barrie', 'Kingston', 'Guelph', 'St. Catharines']
+    
+    texts = []
+    for idx, row in geonames_gdf.iterrows():
+        centroid = row['geometry'].centroid
+        if row['LABEL'] in major_cities:
+            texts.append(ax.text(centroid.x, centroid.y, row['LABEL'], fontsize=8, ha='center', va='center',
+                             bbox=dict(facecolor='yellow', alpha=0.25, edgecolor='black', boxstyle='round,pad=0.5')))
+
+    # make the adjustment much more aggressive
+    adjust_text(texts, expand=(5, 3.25), # expand text bounding boxes by 1.2 fold in x direction and 2 fold in y direction
+                arrowprops=dict(arrowstyle='->', color='red') # ensure the labeling is clear by adding arrows
+                )
+    hospital_gdf.plot(ax=ax, column='Facilities_Per_Capita', cmap='viridis', alpha=0.6,
+                          markersize=hospital_gdf['marker_size'], legend=True,
+                          legend_kwds={'label': "Facilities Per Capita", 'orientation': "horizontal"})
+    ax.set_title('Healthcare Facilities Per Capita in Ontario', fontsize=20, fontweight='bold')
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+    # Adjust visual elements
+    ax.grid(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect('equal')
+    plt.show()
+
+
+population_data = load_population_data("datasets/Ontario_Population_and_Dwelling_Counts.csv")   
+hospital_data = load_hospital_data("datasets/Ontario_Hospital_Locations.csv")
+
+# Group the hospital data by facility name
 grouped_hospitals = hospital_data.groupby('Facility_Name').first().reset_index()
 
-
-population_data = population_data[['Geographic name', 'Population, 2021']].dropna()
-population_data['Geographic name'] = population_data['Geographic name'].str.title()
-
+# Aggregate the population data by geographic name
 aggregated_population = population_data.groupby('Geographic name')['Population, 2021'].sum().reset_index()
 
 # update the population 2021 column data to be the aggregated population so that theres no duplicates for each area type
-population_data = population_data.drop_duplicates(subset=['Geographic name'])
 population_data = population_data.merge(aggregated_population, on='Geographic name', how='inner')
 population_data.drop(columns=['Population, 2021_x'], inplace=True)
 population_data.rename(columns={'Population, 2021_y': 'Population, 2021'}, inplace=True)
 
-
-# Merge data on city
-merged_data = pd.merge(grouped_hospitals, population_data[['Geographic name', 'Population, 2021']], left_on='COMMUNITY', right_on='Geographic name', how='inner')
-merged_data.dropna(subset=['Population, 2021'], inplace=True)
-merged_data.drop(columns=['Geographic name'], inplace=True)
-print(merged_data.columns)
-
+# Merge data on city name
+merged_data = merge_datasets(hospital_data, population_data)
 # Calculate Facilities Per Capita
 merged_data['Facilities_Per_Capita'] = merged_data.groupby('COMMUNITY').transform('count')['Facility_Name'] / merged_data['Population, 2021']
 print(merged_data.tail(10))
 merged_data.to_csv("datasets/merged_data.csv", index=False)
 
+# plot_bar_chart_of_facilities_per_capita(merged_data)
 
-## Bar chart of facilities per capita
-plt.figure(figsize=(20, 6))
-sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=merged_data)
-plt.xticks(rotation=90)
-plt.title('Healthcare Facilities Per Capita by Region')
-plt.xlabel('Region')
-plt.ylabel('Facilities Per Capita')
-plt.tight_layout()
-plt.show()
+# Initialize the geolocator
+geolocator = Nominatim(user_agent="geoapiiExercises")
+# To prevent spamming the service with too many requests, use RateLimiter
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
 
+# # run the api to get the coordinates of the hospitals - takes around 2.5 hours to run so use pre-collected data if possible
+# hospital_gdf = fetch_geopy_coordinates(merged_data)
 
-# # Convert geographical data for plotting
-# gdf = gpd.GeoDataFrame(
-#     merged_data, geometry=gpd.points_from_xy(merged_data.Longitude, merged_data.Latitude)
-# )
+# read the geocoded data from the csv file
+hospital_gdf = load_precollected_data("datasets/merged_data_with_location.csv")
 
-# # Load a more detailed base map
-# ontario_map = gpd.read_file("datasets/ontario_base_map.shp")  # Specify the path to your Ontario shapefile
+base_map_path = "datasets/ontario_shapefiles/base_map/OBM_INDEX.shp"
+upper_tier_path = "datasets/ontario_shapefiles/upper_tier_boundaries/Municipal_Boundary_-_Upper_Tier_and_District.shp"
+lower_tier_path = "datasets/ontario_shapefiles/lower_tier_boundaries/Municipal_Boundary_-_Lower_and_Single_Tier.shp"
+geonames_path = "datasets/ontario_shapefiles/names/Geographic_Names_Ontario.shp"
 
-# # Plot using GeoPandas
-# fig, ax = plt.subplots(figsize=(10, 10))
-# ontario_map.plot(ax=ax, color='white', edgecolor='black')  # Plot Ontario base map
-# gdf.plot(ax=ax, marker='o', color='red', markersize=5)  # Plot hospital locations
-# plt.title('Healthcare Facilities in Ontario')
-# plt.xlim([-95, -74])  # Adjust these values based on the longitude of Ontario
-# plt.ylim([41, 57])   # Adjust these values based on the latitude of Ontario
-# plt.show()
-
-
-
+plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, geonames_path)
 
 
