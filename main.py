@@ -121,21 +121,17 @@ def identify_extreme_cities(merged_data):
     # Return their community names
     return highest['COMMUNITY'].values[0], lowest['COMMUNITY'].values[0]
 
-def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path ,geonames_path, highest_FPC, lowest_FPC):
+def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path ,geonames_path, highest_FPC, lowest_FPC):
     ontario_map = load_and_simplify_shapefile(base_map_path, tolerance=0.0001)
     upper_tier_boundaries = load_and_simplify_shapefile(upper_tier_path, tolerance=0.001)
-    lower_tier_boundaries = load_and_simplify_shapefile(lower_tier_path, tolerance=100)
     # Load geonames shapefile and filter for cities
     geonames_gdf = load_geonames_data(geonames_path)
-
 
     # Ensure the coordinate reference systems match
     if ontario_map.crs != hospital_gdf.crs:
         hospital_gdf = hospital_gdf.to_crs(ontario_map.crs)
     if ontario_map.crs != upper_tier_boundaries.crs:
         upper_tier_boundaries = upper_tier_boundaries.to_crs(ontario_map.crs)
-    if ontario_map.crs != lower_tier_boundaries.crs:
-        lower_tier_boundaries = lower_tier_boundaries.to_crs(ontario_map.crs)
 
     # Normalize the total population for the marker size
     hospital_gdf['marker_size'] = normalize_marker_sizes(hospital_gdf['Population, 2021'])
@@ -144,7 +140,6 @@ def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_pa
     fig, ax = plt.subplots(figsize=(15, 15))
     ontario_map.plot(ax=ax, color='white', edgecolor='lightgrey')
     upper_tier_boundaries.plot(ax=ax, edgecolor='black', linewidth=0.1, alpha=1, linestyle='--', facecolor="none")
-    lower_tier_boundaries.plot(ax=ax, edgecolor='grey', linewidth=0.5, alpha=0.5, facecolor="none")
     major_cities = ['Toronto', 'Ottawa', 'Hamilton', 'London', 'Kitchener', 'Windsor', 'Barrie', 'Kingston', 'Guelph', 'St. Catharines']
     
     texts = []
@@ -218,10 +213,9 @@ hospital_gdf = load_precollected_data("datasets/merged_data_with_location.csv")
 
 base_map_path = "datasets/ontario_shapefiles/base_map/OBM_INDEX.shp"
 upper_tier_path = "datasets/ontario_shapefiles/upper_tier_boundaries/Municipal_Boundary_-_Upper_Tier_and_District.shp"
-lower_tier_path = "datasets/ontario_shapefiles/lower_tier_boundaries/Municipal_Boundary_-_Lower_and_Single_Tier.shp"
 geonames_path = "datasets/ontario_shapefiles/names/Geographic_Names_Ontario.shp"
 
-plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, geonames_path, highest_FPC, lowest_FPC)
+plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, geonames_path, highest_FPC, lowest_FPC)
 
 
 # Additional visualization function definitions
