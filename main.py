@@ -253,22 +253,25 @@ def plot_population_vs_facilities(merged_data):
 def plot_facilities_boxplot(merged_data):
     plt.figure(figsize=(12, 8))
     sns.boxplot(x='Facilities_Per_Capita', data=merged_data)
-    # Calculate the upper whisker for the Facilities_Per_Capita series
+    plt.title('Boxplot of Healthcare Facilities Per Capita')
+    plt.xlabel('Facilities Per Capita')
+
+    # Calculate the upper whisker
     Q1 = merged_data['Facilities_Per_Capita'].quantile(0.25)
     Q3 = merged_data['Facilities_Per_Capita'].quantile(0.75)
     IQR = Q3 - Q1
     upper_whisker = Q3 + 1.5 * IQR
+
+    # Draw upper whisker line
+    plt.axvline(x=upper_whisker, color='r', linestyle='--')
+    plt.text(upper_whisker, plt.ylim()[1], 'Upper Whisker', color='r', ha='left', va='top', 
+             bbox=dict(facecolor='white', alpha=0.5))
     # Identify and annotate the farthest outlier, if any
     outliers = merged_data[merged_data['Facilities_Per_Capita'] > upper_whisker]['Facilities_Per_Capita']
     if not outliers.empty:
         farthest_outlier_value = outliers.max()
         plt.annotate('Farthest Outlier', xy=(farthest_outlier_value, 0), xytext=(farthest_outlier_value, -0.05),
                      arrowprops=dict(facecolor='red', shrink=0.05), ha='center', va='bottom')
-    plt.axvline(x=upper_whisker, color='r', linestyle='--')
-    plt.text(upper_whisker, 0, 'Upper Whisker', color='r', ha='right', va='bottom', backgroundcolor='white')
-    plt.title('Boxplot of Healthcare Facilities Per Capita')
-    plt.xlabel('Facilities Per Capita')
-    plt.savefig('datasets/boxplot_facilities_per_capita.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def plot_scatter_trend(merged_data):

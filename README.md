@@ -69,6 +69,5 @@ This project requires Python and the following libraries:
 Clone this repository or download the files into your local machine. To install the required Python libraries and run the main.py script, run:
 ```bash
 pip install -r requirements.txt 
+
 python main.py
-
-
