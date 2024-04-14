@@ -1,6 +1,9 @@
 
 pandas
+geopandas
 matplotlib
 seaborn
-geopandas
-folium
+shapely
+geopy
+tqdm
+adjustText

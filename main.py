@@ -56,7 +56,6 @@ def merge_datasets(hospital_data, population_data):
     # Preprocessing steps if any additional are needed
     population_data['Geographic name'] = population_data['Geographic name'].str.title()
     hospital_data['COMMUNITY'] = hospital_data['COMMUNITY'].str.title()
-
     # Merge the data on the community name
     merged_data = pd.merge(hospital_data, population_data, left_on='COMMUNITY', right_on='Geographic name', how='inner')
     merged_data.dropna(subset=['Population, 2021'], inplace=True)
@@ -92,13 +91,9 @@ def load_precollected_data(filepath = "datasets/merged_data_with_location.csv"):
     # Ensure columns containing longitude and latitude are correctly typed
     data['latitude'] = pd.to_numeric(data['latitude'], errors='coerce')
     data['longitude'] = pd.to_numeric(data['longitude'], errors='coerce')
-    # Drop any rows that couldn't be converted or were missing
     data.dropna(subset=['latitude', 'longitude'], inplace=True)
-    # Create a GeoDataFrame
     gdf = gpd.GeoDataFrame(data, geometry=gpd.points_from_xy(data.longitude, data.latitude))
-    # Set the CRS for the GeoDataFrame to WGS84 (lat/lon)
     gdf.set_crs(epsg=4326, inplace=True)
-
     return gdf
 
 def load_geonames_data(filepath):
@@ -210,7 +205,6 @@ merged_data.to_csv("datasets/merged_data.csv", index=False)
 # identify the highest and lowest facilities per capita
 highest_FPC, lowest_FPC = identify_extreme_cities(merged_data)
 
-
 # Initialize the geolocator
 geolocator = Nominatim(user_agent="geoapiExercises")
 # To prevent spamming the service with too many requests, use RateLimiter
@@ -232,14 +226,17 @@ plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, 
 
 # Additional visualization function definitions
 def plot_bar_chart_of_facilities_per_capita(data):
+    # Sort the data by 'Facilities_Per_Capita' in descending order
+    sorted_data = data.sort_values('Facilities_Per_Capita', ascending=False)
     plt.figure(figsize=(20, 6))
-    sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=merged_data, palette='viridis')
+    # Ensure that the barplot uses the sorted data
+    sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=sorted_data, palette='viridis')
     plt.xticks(rotation=90)
     plt.title('Healthcare Facilities Per Capita by Region')
     plt.xlabel('Region')
     plt.ylabel('Facilities Per Capita')
     plt.tight_layout()
-    plt.savefig('datasets/bar_chart_facilities_per_capita.png', dpi=300, bbox_inches='tight')
+    plt.savefig('datasets/bar_chart_facilities_per_capita_sorted.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def plot_population_vs_facilities(merged_data):
@@ -254,16 +251,13 @@ def plot_population_vs_facilities(merged_data):
     plt.show()  
 
 def plot_facilities_boxplot(merged_data):
-    # Set up the figure size and create the boxplot
     plt.figure(figsize=(12, 8))
     sns.boxplot(x='Facilities_Per_Capita', data=merged_data)
-    
     # Calculate the upper whisker for the Facilities_Per_Capita series
     Q1 = merged_data['Facilities_Per_Capita'].quantile(0.25)
     Q3 = merged_data['Facilities_Per_Capita'].quantile(0.75)
     IQR = Q3 - Q1
     upper_whisker = Q3 + 1.5 * IQR
-
     # Identify and annotate the farthest outlier, if any
     outliers = merged_data[merged_data['Facilities_Per_Capita'] > upper_whisker]['Facilities_Per_Capita']
     if not outliers.empty:
@@ -277,7 +271,6 @@ def plot_facilities_boxplot(merged_data):
     plt.savefig('datasets/boxplot_facilities_per_capita.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-
 def plot_scatter_trend(merged_data):
     plt.figure(figsize=(10, 6))
     sns.regplot(x=np.log1p(merged_data['Population, 2021']), y='Facilities_Per_Capita', data=merged_data, scatter_kws={'alpha':0.5})
@@ -286,7 +279,6 @@ def plot_scatter_trend(merged_data):
     plt.ylabel('Facilities Per Capita')
     plt.savefig('datasets/scatter_trend_facilities_per_capita.png', dpi=300, bbox_inches='tight')
     plt.show()
-
 
 plot_bar_chart_of_facilities_per_capita(merged_data)
 plot_population_vs_facilities(merged_data)
