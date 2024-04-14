@@ -8,6 +8,7 @@ from geopy.extra.rate_limiter import RateLimiter
 from tqdm import tqdm
 import matplotlib.colors as colors
 from adjustText import adjust_text
+import numpy as np
 
 tqdm.pandas()
 
@@ -61,16 +62,6 @@ def merge_datasets(hospital_data, population_data):
     merged_data.dropna(subset=['Population, 2021'], inplace=True)
     merged_data.drop(columns=['Geographic name'], inplace=True)
     return merged_data
-
-def plot_bar_chart_of_facilities_per_capita(data):
-    plt.figure(figsize=(20, 6))
-    sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=merged_data, palette='viridis')
-    plt.xticks(rotation=90)
-    plt.title('Healthcare Facilities Per Capita by Region')
-    plt.xlabel('Region')
-    plt.ylabel('Facilities Per Capita')
-    plt.tight_layout()
-    plt.show()
 
 # function to get the coordinates from the address using geopy api - takes around 2.5 hours to run so use pre-collected data if possible
 def fetch_geopy_coordinates(merged_data):
@@ -192,8 +183,8 @@ def plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_pa
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_aspect('equal')
+    fig.savefig('datasets/ontario_healthcare_facilities_per_capita.png', dpi=300, bbox_inches='tight')
     plt.show()
-
 
 population_data = load_population_data("datasets/Ontario_Population_and_Dwelling_Counts.csv")   
 hospital_data = load_hospital_data("datasets/Ontario_Hospital_Locations.csv")
@@ -219,7 +210,6 @@ merged_data.to_csv("datasets/merged_data.csv", index=False)
 # identify the highest and lowest facilities per capita
 highest_FPC, lowest_FPC = identify_extreme_cities(merged_data)
 
-# plot_bar_chart_of_facilities_per_capita(merged_data)
 
 # Initialize the geolocator
 geolocator = Nominatim(user_agent="geoapiExercises")
@@ -240,3 +230,65 @@ geonames_path = "datasets/ontario_shapefiles/names/Geographic_Names_Ontario.shp"
 plot_ontario_map(hospital_gdf, base_map_path, upper_tier_path, lower_tier_path, geonames_path, highest_FPC, lowest_FPC)
 
 
+# Additional visualization function definitions
+def plot_bar_chart_of_facilities_per_capita(data):
+    plt.figure(figsize=(20, 6))
+    sns.barplot(x='COMMUNITY', y='Facilities_Per_Capita', data=merged_data, palette='viridis')
+    plt.xticks(rotation=90)
+    plt.title('Healthcare Facilities Per Capita by Region')
+    plt.xlabel('Region')
+    plt.ylabel('Facilities Per Capita')
+    plt.tight_layout()
+    plt.savefig('datasets/bar_chart_facilities_per_capita.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def plot_population_vs_facilities(merged_data):
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(x=np.log1p(merged_data['Population, 2021']), y='Facilities_Per_Capita', c='Facilities_Per_Capita', cmap='viridis', data=merged_data)
+    plt.colorbar(scatter, label='Facilities Per Capita')
+    plt.title('Log Population vs. Healthcare Facilities Per Capita')
+    plt.xlabel('Log of Population')
+    plt.ylabel('Facilities Per Capita')
+    plt.tight_layout()
+    plt.savefig('datasets/scatter_population_vs_facilities_per_capita.png', dpi=300, bbox_inches='tight')
+    plt.show()  
+
+def plot_facilities_boxplot(merged_data):
+    # Set up the figure size and create the boxplot
+    plt.figure(figsize=(12, 8))
+    sns.boxplot(x='Facilities_Per_Capita', data=merged_data)
+    
+    # Calculate the upper whisker for the Facilities_Per_Capita series
+    Q1 = merged_data['Facilities_Per_Capita'].quantile(0.25)
+    Q3 = merged_data['Facilities_Per_Capita'].quantile(0.75)
+    IQR = Q3 - Q1
+    upper_whisker = Q3 + 1.5 * IQR
+
+    # Identify and annotate the farthest outlier, if any
+    outliers = merged_data[merged_data['Facilities_Per_Capita'] > upper_whisker]['Facilities_Per_Capita']
+    if not outliers.empty:
+        farthest_outlier_value = outliers.max()
+        plt.annotate('Farthest Outlier', xy=(farthest_outlier_value, 0), xytext=(farthest_outlier_value, -0.05),
+                     arrowprops=dict(facecolor='red', shrink=0.05), ha='center', va='bottom')
+    plt.axvline(x=upper_whisker, color='r', linestyle='--')
+    plt.text(upper_whisker, 0, 'Upper Whisker', color='r', ha='right', va='bottom', backgroundcolor='white')
+    plt.title('Boxplot of Healthcare Facilities Per Capita')
+    plt.xlabel('Facilities Per Capita')
+    plt.savefig('datasets/boxplot_facilities_per_capita.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_scatter_trend(merged_data):
+    plt.figure(figsize=(10, 6))
+    sns.regplot(x=np.log1p(merged_data['Population, 2021']), y='Facilities_Per_Capita', data=merged_data, scatter_kws={'alpha':0.5})
+    plt.title('Log Population vs. Trend of Facilities Per Capita')
+    plt.xlabel('Log of Population')
+    plt.ylabel('Facilities Per Capita')
+    plt.savefig('datasets/scatter_trend_facilities_per_capita.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+plot_bar_chart_of_facilities_per_capita(merged_data)
+plot_population_vs_facilities(merged_data)
+plot_scatter_trend(merged_data)
+plot_facilities_boxplot(merged_data)
