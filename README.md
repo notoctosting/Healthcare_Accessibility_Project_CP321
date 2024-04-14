@@ -18,19 +18,19 @@ The data is cleaned and merged to create a comprehensive dataset that includes t
 Several visualizations are generated as part of the analysis:
 
 ### Bar Chart of Facilities Per Capita
-![Bar Chart of Facilities Per Capita](images/bar_chart_facilities_per_capita.png)
+![Bar Chart of Facilities Per Capita](datasets/bar_chart_facilities_per_capita.png)
 *This bar chart displays the number of healthcare facilities relative to the population size for each community, sorted to show communities with the highest and lowest facilities per capita.*
 
 ### Scatter Plot of Population vs. Facilities Per Capita
-![Scatter Plot of Population vs. Facilities Per Capita](images/scatter_population_vs_facilities_per_capita.png)
+![Scatter Plot of Population vs. Facilities Per Capita](datasets/scatter_population_vs_facilities_per_capita.png)
 *Illustrates the relationship between population size and the number of facilities per capita.*
 
 ### Boxplot of Healthcare Facilities Per Capita
-![Boxplot of Healthcare Facilities Per Capita](images/boxplot_facilities_per_capita.png)
+![Boxplot of Healthcare Facilities Per Capita](datasets/boxplot_facilities_per_capita.png)
 *Provides a statistical summary of the facilities per capita data, highlighting the distribution and identifying any outliers.*
 
 ### Choropleth Map of Facilities Per Capita
-![Choropleth Map](images/ontario_healthcare_facilities_per_capita.png)
+![Choropleth Map](datasets/ontario_healthcare_facilities_per_capita.png)
 *A geographical map showing the distribution of facilities per capita across Ontario, with annotations for significant regions.*
 
 
