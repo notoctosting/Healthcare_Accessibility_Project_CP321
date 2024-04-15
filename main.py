@@ -46,7 +46,8 @@ def load_hospital_data(filepath="datasets/Ontario_Hospital_Locations.csv"):
     return hospital_data
 
 def clean_hospital_data(data):
-    data = data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD']]
+    # Create a copy of the data to avoid SettingWithCopyWarning
+    data = data[['ENGLISH_NA', 'COMMUNITY', 'ADDRESS_LI', 'POSTAL_COD']].copy()
     data['COMMUNITY'] = data['COMMUNITY'].str.title()
     data['Facility_Name'] = data['ENGLISH_NA'].apply(lambda x: x.split('-')[0].strip())
     data = data.drop_duplicates(subset=['Facility_Name'])
